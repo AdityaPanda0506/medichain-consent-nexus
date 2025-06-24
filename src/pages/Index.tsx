@@ -17,9 +17,19 @@ import {
 import PatientDashboard from "@/components/dashboard/PatientDashboard";
 import DoctorDashboard from "@/components/dashboard/DoctorDashboard";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
+import UserMenu from "@/components/auth/UserMenu";
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
+  const { profile } = useAuth();
   const [selectedRole, setSelectedRole] = useState<'patient' | 'doctor' | 'admin' | null>(null);
+
+  // Auto-select role based on user's actual role
+  React.useEffect(() => {
+    if (profile?.role && !selectedRole) {
+      setSelectedRole(profile.role as 'patient' | 'doctor' | 'admin');
+    }
+  }, [profile, selectedRole]);
 
   const roles = [
     {
@@ -56,14 +66,19 @@ const Index = () => {
             <h1 className="text-3xl font-bold text-slate-800">
               MedChain Platform - {roles.find(r => r.id === selectedRole)?.title}
             </h1>
-            <Button 
-              variant="outline" 
-              onClick={() => setSelectedRole(null)}
-              className="flex items-center gap-2"
-            >
-              <User className="w-4 h-4" />
-              Switch Role
-            </Button>
+            <div className="flex items-center gap-4">
+              {profile?.role !== selectedRole && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedRole(null)}
+                  className="flex items-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Switch View
+                </Button>
+              )}
+              <UserMenu />
+            </div>
           </div>
           
           {selectedRole === 'patient' && <PatientDashboard />}
@@ -89,15 +104,18 @@ const Index = () => {
                 <p className="text-sm text-slate-600">Secure Healthcare Data Sharing</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Lock className="w-3 h-3" />
-                HIPAA Compliant
-              </Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Database className="w-3 h-3" />
-                Blockchain Secured
-              </Badge>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  HIPAA Compliant
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Database className="w-3 h-3" />
+                  Blockchain Secured
+                </Badge>
+              </div>
+              <UserMenu />
             </div>
           </div>
         </div>
@@ -107,7 +125,7 @@ const Index = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
           <h2 className="text-5xl font-bold text-slate-800 mb-6">
-            Revolutionary Healthcare Data Platform
+            Welcome to MedChain, {profile?.full_name}
           </h2>
           <p className="text-xl text-slate-600 max-w-3xl mx-auto mb-8">
             Secure, compliant, and patient-controlled healthcare data sharing using blockchain technology, 
@@ -116,11 +134,11 @@ const Index = () => {
           <div className="flex justify-center items-center gap-4 text-sm text-slate-500">
             <span className="flex items-center gap-1">
               <Zap className="w-4 h-4" />
-              Next.js + React
+              React + Supabase
             </span>
             <span className="flex items-center gap-1">
               <Shield className="w-4 h-4" />
-              Ethereum + Hyperledger
+              Authenticated
             </span>
             <span className="flex items-center gap-1">
               <FileText className="w-4 h-4" />
@@ -129,39 +147,53 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Role Selection */}
+        {/* Role Selection - Show all roles or just user's role */}
         <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {roles.map((role) => {
-            const IconComponent = role.icon;
-            return (
-              <Card 
-                key={role.id}
-                className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 border-0 shadow-md"
-                onClick={() => setSelectedRole(role.id)}
-              >
-                <CardHeader className="text-center pb-4">
-                  <div className={`w-16 h-16 ${role.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                    <IconComponent className="w-8 h-8 text-white" />
-                  </div>
-                  <CardTitle className="text-xl text-slate-800">{role.title}</CardTitle>
-                  <p className="text-slate-600 text-sm">{role.description}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {role.features.map((feature, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="w-2 h-2 bg-slate-300 rounded-full"></div>
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                  <Button className="w-full mt-6" size="lg">
-                    Enter {role.title}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {roles
+            .filter(role => !profile?.role || profile.role === 'admin' || role.id === profile.role)
+            .map((role) => {
+              const IconComponent = role.icon;
+              const isUserRole = profile?.role === role.id;
+              const canAccess = !profile?.role || profile.role === 'admin' || profile.role === role.id;
+              
+              return (
+                <Card 
+                  key={role.id}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 border-0 shadow-md ${
+                    isUserRole ? 'ring-2 ring-blue-500' : ''
+                  } ${!canAccess ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={() => canAccess && setSelectedRole(role.id)}
+                >
+                  <CardHeader className="text-center pb-4">
+                    <div className={`w-16 h-16 ${role.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                      <IconComponent className="w-8 h-8 text-white" />
+                    </div>
+                    <CardTitle className="text-xl text-slate-800 flex items-center justify-center gap-2">
+                      {role.title}
+                      {isUserRole && <Badge className="text-xs">Your Role</Badge>}
+                    </CardTitle>
+                    <p className="text-slate-600 text-sm">{role.description}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {role.features.map((feature, index) => (
+                        <div key={index} className="flex items-center gap-2 text-sm text-slate-600">
+                          <div className="w-2 h-2 bg-slate-300 rounded-full"></div>
+                          {feature}
+                        </div>
+                      ))}
+                    </div>
+                    <Button 
+                      className="w-full mt-6" 
+                      size="lg"
+                      disabled={!canAccess}
+                    >
+                      {isUserRole ? 'Enter Dashboard' : `View ${role.title}`}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
       </div>
 
@@ -172,37 +204,37 @@ const Index = () => {
             <div>
               <h3 className="font-semibold mb-4">Technology Stack</h3>
               <ul className="space-y-2 text-sm text-slate-300">
-                <li>Next.js & React</li>
-                <li>Material-UI & Tailwind</li>
-                <li>Three.js for 3D</li>
-                <li>Node.js Backend</li>
+                <li>React & TypeScript</li>
+                <li>Supabase Backend</li>
+                <li>Tailwind CSS</li>
+                <li>Real-time Database</li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Blockchain</h3>
+              <h3 className="font-semibold mb-4">Authentication</h3>
               <ul className="space-y-2 text-sm text-slate-300">
-                <li>Ethereum Smart Contracts</li>
-                <li>Hyperledger Fabric</li>
-                <li>IPFS Storage</li>
-                <li>Zero-Knowledge Proofs</li>
+                <li>Secure Login/Signup</li>
+                <li>Role-based Access</li>
+                <li>Session Management</li>
+                <li>Profile Management</li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-4">Security</h3>
               <ul className="space-y-2 text-sm text-slate-300">
-                <li>AES-256-GCM Encryption</li>
-                <li>Biometric Authentication</li>
-                <li>JWT Role-Based Access</li>
+                <li>Row-Level Security</li>
+                <li>HIPAA Compliance</li>
+                <li>Encrypted Storage</li>
                 <li>Audit Trails</li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Compliance</h3>
+              <h3 className="font-semibold mb-4">Features</h3>
               <ul className="space-y-2 text-sm text-slate-300">
-                <li>HIPAA Compliant</li>
-                <li>GDPR Ready</li>
-                <li>CCPA Compatible</li>
-                <li>FHIR/HL7 Standards</li>
+                <li>Patient Consent</li>
+                <li>Medical Records</li>
+                <li>Access Logging</li>
+                <li>Real-time Updates</li>
               </ul>
             </div>
           </div>
